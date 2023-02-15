@@ -8,7 +8,10 @@ import (
 	"strings"
 
 	fhttp "github.com/bogdanfinn/fhttp"
+	"github.com/bogdanfinn/fhttp/cookiejar"
 )
+
+var cookies *cookiejar.Jar
 
 func NewReq(method string, url string, payload string, chead map[string]string, dontIncludeOptionalHeaders bool) ([]byte, fhttp.Header, int, error) {
 	uparsed, err := up.Parse(url)
@@ -27,12 +30,12 @@ func NewReq(method string, url string, payload string, chead map[string]string, 
 		"sec-fetch-dest":     {"empty"},
 		"sec-fetch-mode":     {"cors"},
 		"sec-fetch-site":     {"same-site"},
-		"user-agent":         {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"},
+		"user-agent":         {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.4896.127 Safari/537.36"},
 	}
 
 	if dontIncludeOptionalHeaders {
 		headers = map[string][]string{
-			"user-agent": {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"},
+			"user-agent": {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.4896.127 Safari/537.36"},
 		}
 	}
 
@@ -46,14 +49,32 @@ func NewReq(method string, url string, payload string, chead map[string]string, 
 		rpayload = []byte(payload)
 	}
 
+	// log.Println(strings.ToUpper(method),
+	// 	url,
+	// 	headers,
+	// 	string(rpayload))
+
 	res, headers, status, err := SendTLSRequest(
 		strings.ToUpper(method),
 		url,
 		headers,
 		rpayload,
+		cookies,
 	)
 
 	return res, headers, status, err
+}
+
+func ResetCookies(w http.ResponseWriter, r *http.Request) {
+	cj, err := cookiejar.New(nil)
+	if err == nil {
+		cookies = cj
+		w.WriteHeader(200)
+		w.Write([]byte(`{"error": false, "message": "cookies_reset"}`))
+	} else {
+		w.WriteHeader(500)
+		w.Write([]byte(`{"error": true, "message": "cookie_reset_failed"}`))
+	}
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +135,11 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	cj, err := cookiejar.New(nil)
+	if err == nil {
+		cookies = cj
+	}
 	http.HandleFunc("/proxy", ProxyHandler)
+	http.HandleFunc("/reset-cookies", ResetCookies)
 	http.ListenAndServe("127.0.0.1:7738", nil)
 }
