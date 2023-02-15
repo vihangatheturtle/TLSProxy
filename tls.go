@@ -9,7 +9,7 @@ import (
 	tls_client "github.com/bogdanfinn/tls-client"
 )
 
-func SendTLSRequest(method string, url string, headers map[string][]string, payload []byte, cjar ...*cookiejar.Jar) ([]byte, error) {
+func SendTLSRequest(method string, url string, headers map[string][]string, payload []byte, cjar ...*cookiejar.Jar) ([]byte, fhttp.Header, int, error) {
 	var jar *cookiejar.Jar
 
 	if len(cjar) == 0 {
@@ -27,13 +27,13 @@ func SendTLSRequest(method string, url string, headers map[string][]string, payl
 	client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, 500, err
 	}
 
 	req, err := fhttp.NewRequest(method, url, bytes.NewBuffer(payload))
 
 	if err != nil {
-		return nil, err
+		return nil, nil, 500, err
 	}
 
 	req.Header = headers
@@ -41,7 +41,7 @@ func SendTLSRequest(method string, url string, headers map[string][]string, payl
 	res, err := client.Do(req)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, 500, err
 	}
 
 	defer res.Body.Close()
@@ -49,8 +49,8 @@ func SendTLSRequest(method string, url string, headers map[string][]string, payl
 	body, err := io.ReadAll(res.Body)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, 500, err
 	}
 
-	return body, nil
+	return body, res.Header, res.StatusCode, nil
 }

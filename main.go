@@ -6,12 +6,14 @@ import (
 	"net/http"
 	up "net/url"
 	"strings"
+
+	fhttp "github.com/bogdanfinn/fhttp"
 )
 
-func NewReq(method string, url string, payload string, chead map[string]string) ([]byte, error) {
+func NewReq(method string, url string, payload string, chead map[string]string) ([]byte, fhttp.Header, int, error) {
 	uparsed, err := up.Parse(url)
 	if err != nil {
-		return nil, err
+		return nil, nil, 500, err
 	}
 
 	headers := map[string][]string{
@@ -38,14 +40,14 @@ func NewReq(method string, url string, payload string, chead map[string]string) 
 		rpayload = []byte(payload)
 	}
 
-	res, err := SendTLSRequest(
+	res, headers, status, err := SendTLSRequest(
 		strings.ToUpper(method),
 		url,
 		headers,
 		rpayload,
 	)
 
-	return res, err
+	return res, headers, status, err
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -83,14 +85,21 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		data.Payload = data.Body
 	}
 
-	response, err := NewReq(data.Method, data.URL, data.Payload, data.Headers)
+	response, headers, status, err := NewReq(data.Method, data.URL, data.Payload, data.Headers)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(`{"error": true, "message": "proxied_request_failed"}`))
 		return
 	}
 
-	w.WriteHeader(200)
+	if headers != nil {
+		shdrs, _ := headers.SortedKeyValues(nil)
+		for i := 0; i < len(shdrs); i++ {
+			w.Header().Set(shdrs[i].Key, shdrs[i].Values[0])
+		}
+	}
+
+	w.WriteHeader(status)
 	w.Write(response)
 }
 
