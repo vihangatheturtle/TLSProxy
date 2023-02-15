@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	up "net/url"
 	"strings"
@@ -38,8 +37,6 @@ func NewReq(method string, url string, payload string, chead map[string]string) 
 	if payload != "" {
 		rpayload = []byte(payload)
 	}
-
-	log.Println(payload)
 
 	res, err := SendTLSRequest(
 		strings.ToUpper(method),
@@ -92,8 +89,6 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"error": true, "message": "proxied_request_failed"}`))
 		return
 	}
-
-	log.Println(data)
 
 	w.WriteHeader(200)
 	w.Write(response)
