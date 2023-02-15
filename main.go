@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func NewReq(method string, url string, payload []byte, chead map[string]string) ([]byte, error) {
+func NewReq(method string, url string, payload string, chead map[string]string) ([]byte, error) {
 	uparsed, err := up.Parse(url)
 	if err != nil {
 		return nil, err
@@ -32,11 +32,17 @@ func NewReq(method string, url string, payload []byte, chead map[string]string) 
 		headers[i] = []string{v}
 	}
 
+	var rpayload []byte = nil
+
+	if payload != "" {
+		rpayload = []byte(payload)
+	}
+
 	res, err := SendTLSRequest(
 		strings.ToUpper(method),
 		url,
 		headers,
-		nil,
+		rpayload,
 	)
 
 	return res, err
@@ -60,7 +66,7 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		Method  string `json:"method"`
 		URL     string `json:"url"`
 		Headers map[string]string
-		Payload []byte `json:"payload"`
+		Payload string `json:"payload"`
 	}
 
 	var data request
