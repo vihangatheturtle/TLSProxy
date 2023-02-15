@@ -109,8 +109,22 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if data.URL == "" {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error": true, "message": "no_url_provided"}`))
+		return
+	}
+
+	if data.Method == "" {
+		data.Method = "GET"
+	}
+
 	if data.Payload == "" {
 		data.Payload = data.Body
+	}
+
+	if data.Payload != "" && data.Method == "GET" {
+		data.Method = "POST"
 	}
 
 	response, headers, status, err := NewReq(data.Method, data.URL, data.Payload, data.Headers, data.UseBaseHeaders)
