@@ -10,7 +10,7 @@ import (
 	fhttp "github.com/bogdanfinn/fhttp"
 )
 
-func NewReq(method string, url string, payload string, chead map[string]string) ([]byte, fhttp.Header, int, error) {
+func NewReq(method string, url string, payload string, chead map[string]string, dontIncludeOptionalHeaders bool) ([]byte, fhttp.Header, int, error) {
 	uparsed, err := up.Parse(url)
 	if err != nil {
 		return nil, nil, 500, err
@@ -28,6 +28,12 @@ func NewReq(method string, url string, payload string, chead map[string]string) 
 		"sec-fetch-mode":     {"cors"},
 		"sec-fetch-site":     {"same-site"},
 		"user-agent":         {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"},
+	}
+
+	if dontIncludeOptionalHeaders {
+		headers = map[string][]string{
+			"user-agent": {"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36"},
+		}
 	}
 
 	for i, v := range chead {
@@ -65,11 +71,12 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type request struct {
-		Method  string `json:"method"`
-		URL     string `json:"url"`
-		Headers map[string]string
-		Payload string `json:"payload"`
-		Body    string `json:"body"`
+		Method         string `json:"method"`
+		URL            string `json:"url"`
+		Headers        map[string]string
+		Payload        string `json:"payload"`
+		Body           string `json:"body"`
+		UseBaseHeaders bool   `json:"useBaseHeaders"`
 	}
 
 	var data request
@@ -85,7 +92,7 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 		data.Payload = data.Body
 	}
 
-	response, headers, status, err := NewReq(data.Method, data.URL, data.Payload, data.Headers)
+	response, headers, status, err := NewReq(data.Method, data.URL, data.Payload, data.Headers, data.UseBaseHeaders)
 	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(`{"error": true, "message": "proxied_request_failed"}`))
