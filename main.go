@@ -95,6 +95,9 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if headers != nil {
 		shdrs, _ := headers.SortedKeyValues(nil)
 		for i := 0; i < len(shdrs); i++ {
+			if shdrs[i].Key == "Content-Encoding" {
+				continue
+			}
 			w.Header().Set(shdrs[i].Key, shdrs[i].Values[0])
 		}
 	}
