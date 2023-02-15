@@ -65,6 +65,68 @@ func NewReq(method string, url string, payload string, chead map[string]string, 
 	return res, headers, status, err
 }
 
+func GetCookie(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error": true, "message": "invalid_request_method"}`))
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error": true, "message": "bad_request_body"}`))
+		return
+	}
+
+	type request struct {
+		URL string `json:"url"`
+	}
+
+	var data request
+
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(`{"error": true, "message": "request_parse_failed"}`))
+		return
+	}
+
+	if data.URL == "" {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error": true, "message": "no_url_provided"}`))
+		return
+	}
+
+	parsedURL, err := up.Parse(data.URL)
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error": true, "message": "bad_url"}`))
+		return
+	}
+
+	if cookies != nil {
+		cs := cookies.Cookies(parsedURL)
+
+		if cs == nil {
+			w.WriteHeader(200)
+			w.Write([]byte(`[]`))
+			return
+		}
+
+		data, err := json.Marshal(cs)
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte(`{"error": true, "message": "cookies_parse_failed"}`))
+			return
+		}
+
+		w.WriteHeader(200)
+		w.Write(data)
+		return
+	}
+}
+
 func ResetCookies(w http.ResponseWriter, r *http.Request) {
 	cj, err := cookiejar.New(nil)
 	if err == nil {
@@ -155,5 +217,6 @@ func main() {
 	}
 	http.HandleFunc("/proxy", ProxyHandler)
 	http.HandleFunc("/reset-cookies", ResetCookies)
+	http.HandleFunc("/get-cookies", GetCookie)
 	http.ListenAndServe("127.0.0.1:7738", nil)
 }
