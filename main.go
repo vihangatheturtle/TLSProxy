@@ -12,6 +12,7 @@ import (
 )
 
 var cookies *cookiejar.Jar
+var requestedURLS []string
 
 func NewReq(method string, url string, payload string, chead map[string]string, dontIncludeOptionalHeaders bool) ([]byte, fhttp.Header, int, error) {
 	uparsed, err := up.Parse(url)
@@ -62,10 +63,57 @@ func NewReq(method string, url string, payload string, chead map[string]string, 
 		cookies,
 	)
 
+	var addURLToList bool = true
+
+	for i := 0; i < len(requestedURLS); i++ {
+		if requestedURLS[i] == url {
+			addURLToList = false
+		}
+	}
+
+	if addURLToList {
+		requestedURLS = append(requestedURLS, url)
+	}
+
 	return res, headers, status, err
 }
 
-func GetCookie(w http.ResponseWriter, r *http.Request) {
+func GetAllCookies(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error": true, "message": "invalid_request_method"}`))
+		return
+	}
+
+	var cookiesMap map[string][]*fhttp.Cookie = make(map[string][]*fhttp.Cookie)
+
+	for i := 0; i < len(requestedURLS); i++ {
+		parsedURL, err := up.Parse(requestedURLS[i])
+		if err != nil {
+			continue
+		}
+		cs := cookies.Cookies(parsedURL)
+		cookiesMap[requestedURLS[i]] = cs
+	}
+
+	data, err := json.Marshal(cookiesMap)
+	if err != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(`{"error": true, "message": "cookies_parse_failed"}`))
+		return
+	}
+
+	if cookiesMap == nil {
+		w.WriteHeader(200)
+		w.Write([]byte(`{}`))
+		return
+	}
+
+	w.WriteHeader(200)
+	w.Write(data)
+}
+
+func GetCookies(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		w.WriteHeader(400)
 		w.Write([]byte(`{"error": true, "message": "invalid_request_method"}`))
@@ -217,6 +265,7 @@ func main() {
 	}
 	http.HandleFunc("/proxy", ProxyHandler)
 	http.HandleFunc("/reset-cookies", ResetCookies)
-	http.HandleFunc("/get-cookies", GetCookie)
+	http.HandleFunc("/get-cookies", GetCookies)
+	http.HandleFunc("/get-all-cookies", GetAllCookies)
 	http.ListenAndServe("127.0.0.1:7738", nil)
 }
